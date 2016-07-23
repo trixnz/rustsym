@@ -18,3 +18,8 @@ For example, to find symbols matching `foo` in `bar.rs` (excluding child modules
 If you run `rustsym search -g . foo` then you will search all source files under the current directory for `foo`.
 
 `rustsym` also supports pretty printing the AST for debugging why certain symbols may not appear, but to also improve the turn around time of additional symbol types. This functionality is entirely provided by [syntex](https://github.com/serde-rs/syntex). It can be invoked with `rustsym --dump file.rs`.
+
+## Supported IDEs
+* [vscode](https://github.com/Microsoft/vscode) via my fork of [RustyCode](https://github.com/trixnz/RustyCode)
+
+![Go To Symbol](https://cloud.githubusercontent.com/assets/2995953/17079680/1113b7dc-5118-11e6-82a5-792d063a33b9.png)
