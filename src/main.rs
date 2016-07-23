@@ -66,7 +66,7 @@ enum SearchType {
     Global,
 }
 
-fn dump_ast<'a>(matches: &clap::ArgMatches<'a>) {
+fn dump_ast(matches: &clap::ArgMatches) {
     let file = matches.value_of("file").unwrap();
 
     let session = ParseSess::new();
@@ -141,7 +141,7 @@ fn search_symbol_file(file: &str, query: &str, search_children: bool) -> Vec<Mat
     visitor.matches
 }
 
-fn search_symbol<'a>(matches: &clap::ArgMatches<'a>) -> Vec<Match> {
+fn search_symbol(matches: &clap::ArgMatches) -> Vec<Match> {
     let file = matches.value_of("file").unwrap();
     let query = matches.value_of("query").unwrap_or_default();
 

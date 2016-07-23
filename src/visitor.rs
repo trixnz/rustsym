@@ -75,9 +75,9 @@ impl<'a> Visitor for SymbolVisitor<'a> {
             ItemKind::Struct(ref variant, _) => {
                 self.create_match(&item_name, None, MatchKind::Struct, item.span);
 
-                match variant {
-                    &VariantData::Struct(ref fields, _) |
-                    &VariantData::Tuple(ref fields, _) => {
+                match *variant {
+                    VariantData::Struct(ref fields, _) |
+                    VariantData::Tuple(ref fields, _) => {
                         for field in fields {
                             if let Some(field_ident) = field.ident {
                                 let field_name = get_ident_name(&field_ident);
@@ -90,7 +90,7 @@ impl<'a> Visitor for SymbolVisitor<'a> {
                         }
                     }
                     _ => {}
-                };
+                }
             }
 
             ItemKind::Trait(_, _, _, ref items) => {
@@ -133,23 +133,17 @@ impl<'a> Visitor for SymbolVisitor<'a> {
                 let mut struct_name = String::new();
 
                 // Figure out the struct name on the right hand side of the `impl` expression
-                match ty.node {
-                    ast::TyKind::Path(_, ref p) => {
-                        struct_name = get_ident_name(&p.segments[0].identifier);
-                    }
-                    _ => {}
-                };
+                if let ast::TyKind::Path(_, ref p) = ty.node {
+                    struct_name = get_ident_name(&p.segments[0].identifier);
+                }
 
                 // Now populate the methods
                 for item in items {
-                    match item.node {
-                        ImplItemKind::Method(_, _) => {
-                            self.create_match(&get_ident_name(&item.ident),
-                                              Some(&struct_name),
-                                              MatchKind::Method,
-                                              item.span)
-                        }
-                        _ => {}
+                    if let ImplItemKind::Method(_, _) = item.node {
+                        self.create_match(&get_ident_name(&item.ident),
+                                          Some(&struct_name),
+                                          MatchKind::Method,
+                                          item.span)
                     }
                 }
             }
