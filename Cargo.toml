@@ -1,0 +1,14 @@
+[package]
+name = "rustsym"
+version = "0.1.0"
+description = "Tool to query symbols from rust code for use in IDEs"
+authors = ["Trixnz"]
+repository = "https://github.com/trixnz/rustsym"
+readme = "README.md"
+license = "MIT"
+
+[dependencies]
+syntex_syntax = "0.38"
+rustc-serialize = "0.3"
+clap = "2"
+walkdir = "0.1.5"
