@@ -2,6 +2,8 @@ extern crate syntex_syntax as syntax;
 extern crate rustc_serialize;
 extern crate clap;
 extern crate walkdir;
+extern crate threadpool;
+extern crate num_cpus;
 
 mod visitor;
 
@@ -78,6 +80,8 @@ fn dump_ast(matches: &clap::ArgMatches) {
 
 fn search_symbol_global(path: &str, query: &str) -> Vec<Match> {
     use walkdir::WalkDir;
+    use threadpool::ThreadPool;
+    use std::sync::mpsc::channel;
 
     let crate_root = Path::new(path);
 
@@ -93,7 +97,10 @@ fn search_symbol_global(path: &str, query: &str) -> Vec<Match> {
 
     let target_dir = crate_root.join("target");
 
-    let mut matches: Vec<Match> = Vec::new();
+    let pool = ThreadPool::new(num_cpus::get());
+    let (tx, rx) = channel();
+
+    let mut num_jobs = 0;
 
     for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
         let path = entry.path();
@@ -114,11 +121,24 @@ fn search_symbol_global(path: &str, query: &str) -> Vec<Match> {
         }
 
         if let Some(path) = path.to_str() {
-            matches.append(&mut search_symbol_file(path, query, false));
+            let path = path.to_owned();
+            let query = query.to_owned();
+
+            let tx = tx.clone();
+            pool.execute(move || {
+                let matches = search_symbol_file(&path, &query, false);
+
+                tx.send(matches).unwrap();
+            });
+            num_jobs += 1;
         }
     }
 
-    matches
+    // Fold the list of matches into a single list
+    rx.iter().take(num_jobs).fold(vec![], |mut v, m| {
+        v.extend(m);
+        v
+    })
 }
 
 fn search_symbol_file(file: &str, query: &str, search_children: bool) -> Vec<Match> {
