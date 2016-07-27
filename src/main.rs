@@ -82,6 +82,8 @@ fn search_symbol_global(path: &str, query: &str) -> Vec<Match> {
     use walkdir::WalkDir;
     use threadpool::ThreadPool;
     use std::sync::mpsc::channel;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     let crate_root = Path::new(path);
 
@@ -100,7 +102,7 @@ fn search_symbol_global(path: &str, query: &str) -> Vec<Match> {
     let pool = ThreadPool::new(num_cpus::get());
     let (tx, rx) = channel();
 
-    let mut num_jobs = 0;
+    let num_jobs = Arc::new(AtomicUsize::new(0));
 
     for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
         let path = entry.path();
@@ -125,16 +127,21 @@ fn search_symbol_global(path: &str, query: &str) -> Vec<Match> {
             let query = query.to_owned();
 
             let tx = tx.clone();
+            let num_jobs_clone = num_jobs.clone();
             pool.execute(move || {
                 let matches = search_symbol_file(&path, &query, false);
-
                 tx.send(matches).unwrap();
+
+                num_jobs_clone.fetch_add(1, Ordering::SeqCst);
             });
-            num_jobs += 1;
         }
     }
 
+    // Wait for all of the jobs to finish
+    while pool.active_count() > 0 {}
+
     // Fold the list of matches into a single list
+    let num_jobs = num_jobs.load(Ordering::SeqCst);
     rx.iter().take(num_jobs).fold(vec![], |mut v, m| {
         v.extend(m);
         v
