@@ -160,7 +160,7 @@ fn search_symbol_file(file: &str, query: &str, search_children: bool) -> Vec<Mat
         matches: vec![],
         codemap: session.codemap(),
         search_children: search_children,
-        query: query.into(),
+        query: query.to_lowercase(),
     };
 
     visit::walk_crate(&mut visitor, &krate);
