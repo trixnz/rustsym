@@ -27,6 +27,8 @@ enum MatchKind {
     Constant,
     Static,
     Enum,
+
+    Macro,
 }
 
 // Required to convert the `MatchKind` enum fields to lowercase in the JSON output
@@ -42,6 +44,8 @@ impl Encodable for MatchKind {
             MatchKind::Constant => "constant",
             MatchKind::Static => "static",
             MatchKind::Enum => "enum",
+
+            MatchKind::Macro => "macro",
         }));
 
         Ok(())

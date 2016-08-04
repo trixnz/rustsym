@@ -147,6 +147,11 @@ impl<'a> Visitor for SymbolVisitor<'a> {
                     }
                 }
             }
+
+            ItemKind::Mac(_) => {
+                self.create_match(&item_name, None, MatchKind::Macro, item.span);
+            }
+
             _ => {}
         };
 
