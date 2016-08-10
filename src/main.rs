@@ -5,6 +5,9 @@ extern crate walkdir;
 extern crate threadpool;
 extern crate num_cpus;
 
+#[cfg(test)]
+extern crate tempfile;
+
 mod visitor;
 
 use rustc_serialize::{json, Encodable, Encoder};
@@ -16,7 +19,7 @@ use syntax::visit;
 
 use std::path::Path;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum MatchKind {
     Struct,
     Method,
@@ -191,7 +194,7 @@ fn search_symbol(matches: &clap::ArgMatches) -> Vec<Match> {
 }
 
 fn main() {
-    let app = App::new("rust-symbols")
+    let app = App::new("rustsym")
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
@@ -231,5 +234,269 @@ fn main() {
             }
             _ => unreachable!(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Match, MatchKind, search_symbol_file};
+    use tempfile::NamedTempFile;
+
+    fn create_source_tmp(src: &'static str) -> NamedTempFile {
+        use std::io::Write;
+
+        let mut file = NamedTempFile::new().expect("failed to create temporary file");
+        file.write_all(src.as_bytes()).unwrap();
+
+        file
+    }
+
+    fn get_symbol_matches(src: &'static str, symbol_name: &str) -> Vec<Match> {
+        let file = create_source_tmp(src);
+        search_symbol_file(file.path().to_str().unwrap(), symbol_name, false)
+    }
+
+    fn test_symbol<F>(src: &'static str, symbol_name: &str, test_fn: &F)
+        where F: Fn(&Match)
+    {
+        let matches = get_symbol_matches(src, symbol_name);
+        let candidate: &Match = matches.first().expect("Failed to find any matches");
+
+        test_fn(candidate);
+    }
+
+    fn test_symbols<F>(src: &'static str, symbols: Vec<&str>, test_fn: F)
+        where F: Fn(&Match)
+    {
+        for symbol in symbols {
+            test_symbol(src, symbol, &test_fn);
+        }
+    }
+
+    #[test]
+    fn check_struct() {
+        let src = "struct TestStruct {}";
+
+        test_symbols(src, vec!["test", "TestStruct"], |symbol: &Match| {
+            assert_eq!(symbol.name, "TestStruct");
+            assert_eq!(symbol.container, "");
+            assert_eq!(symbol.kind, MatchKind::Struct);
+            assert_eq!(symbol.line, 1);
+        });
+    }
+
+    #[test]
+    fn check_struct_impl() {
+        let src = "
+            struct TestStruct {}
+
+            impl TestStruct {
+            fn test_fn() {}
+            }
+        ";
+
+        test_symbols(src,
+                     vec!["test_fn", "TEST_fn"],
+                     &|symbol: &Match| {
+                         assert_eq!(symbol.name, "test_fn");
+                         assert_eq!(symbol.container, "TestStruct");
+                         assert_eq!(symbol.kind, MatchKind::Method);
+                         assert_eq!(symbol.line, 5);
+                     });
+    }
+
+    #[test]
+    fn check_struct_field() {
+        let src = "
+            struct TestStruct {
+            test_field: u32
+            }
+        ";
+
+        test_symbols(src,
+                     vec!["test_field", "field"],
+                     &|symbol: &Match| {
+                         assert_eq!(symbol.name, "test_field");
+                         assert_eq!(symbol.container, "TestStruct");
+                         assert_eq!(symbol.kind, MatchKind::Field);
+                         assert_eq!(symbol.line, 3);
+                     });
+    }
+
+    #[test]
+    fn check_function() {
+        let src = "fn test_fn() {}";
+
+        test_symbols(src,
+                     vec!["test_fn", "TEST_fn"],
+                     &|symbol: &Match| {
+                         assert_eq!(symbol.name, "test_fn");
+                         assert_eq!(symbol.container, "");
+                         assert_eq!(symbol.kind, MatchKind::Function);
+                         assert_eq!(symbol.line, 1);
+                     });
+    }
+
+    #[test]
+    fn check_constant() {
+        let src = "const ConstSymbol: u32 = 0;";
+
+        test_symbols(src,
+                     vec!["ConstSymbol", "symbol"],
+                     &|symbol: &Match| {
+                         assert_eq!(symbol.name, "ConstSymbol");
+                         assert_eq!(symbol.container, "");
+                         assert_eq!(symbol.kind, MatchKind::Constant);
+                         assert_eq!(symbol.line, 1);
+                     });
+    }
+
+    #[test]
+    fn check_static() {
+        let src = "static StaticSymbol: u32 = 0;";
+
+        test_symbols(src,
+                     vec!["StaticSymbol", "symbol"],
+                     &|symbol: &Match| {
+                         assert_eq!(symbol.name, "StaticSymbol");
+                         assert_eq!(symbol.container, "");
+                         assert_eq!(symbol.kind, MatchKind::Static);
+                         assert_eq!(symbol.line, 1);
+                     });
+    }
+
+    #[test]
+    fn check_enum() {
+        let src = "enum TestEnum {}";
+
+        test_symbols(src,
+                     vec!["TestEnum", "test"],
+                     &|symbol: &Match| {
+                         assert_eq!(symbol.name, "TestEnum");
+                         assert_eq!(symbol.container, "");
+                         assert_eq!(symbol.kind, MatchKind::Enum);
+                         assert_eq!(symbol.line, 1);
+                     });
+    }
+
+    #[test]
+    fn check_macro() {
+        let src = "
+            macro_rules! test_macro {
+            () => ()
+            }
+        ";
+
+        test_symbols(src,
+                     vec!["test_macro", "test"],
+                     &|symbol: &Match| {
+                         assert_eq!(symbol.name, "test_macro");
+                         assert_eq!(symbol.container, "");
+                         assert_eq!(symbol.kind, MatchKind::Macro);
+                         assert_eq!(symbol.line, 2);
+                     });
+    }
+
+    #[test]
+    fn check_struct_inclusive() {
+        let src = "
+            struct TestStruct {
+                test_field: u32
+            }
+
+            impl TestStruct {
+                fn test_fn() {}   
+            }
+        ";
+
+        let matches = get_symbol_matches(src, "");
+        assert!(matches.len() == 3);
+
+        let ref symbol = matches[0];
+        assert_eq!(symbol.name, "TestStruct");
+        assert_eq!(symbol.container, "");
+        assert_eq!(symbol.kind, MatchKind::Struct);
+        assert_eq!(symbol.line, 2);
+
+        let ref symbol = matches[1];
+        assert_eq!(symbol.name, "test_field");
+        assert_eq!(symbol.container, "TestStruct");
+        assert_eq!(symbol.kind, MatchKind::Field);
+        assert_eq!(symbol.line, 3);
+
+        let ref symbol = matches[2];
+        assert_eq!(symbol.name, "test_fn");
+        assert_eq!(symbol.container, "TestStruct");
+        assert_eq!(symbol.kind, MatchKind::Method);
+        assert_eq!(symbol.line, 7);
+    }
+
+    #[test]
+    fn check_trait() {
+        let src = "
+            trait TestTrait {
+                fn test_fn();
+                const test_constant: i32;
+            }
+        ";
+
+        let matches = get_symbol_matches(src, "");
+        assert!(matches.len() == 3);
+
+        let ref symbol = matches[0];
+        assert_eq!(symbol.name, "TestTrait");
+        assert_eq!(symbol.container, "");
+        assert_eq!(symbol.kind, MatchKind::Struct);
+        assert_eq!(symbol.line, 2);
+
+        let ref symbol = matches[1];
+        assert_eq!(symbol.name, "test_fn");
+        assert_eq!(symbol.container, "TestTrait");
+        assert_eq!(symbol.kind, MatchKind::Method);
+        assert_eq!(symbol.line, 3);
+
+        let ref symbol = matches[2];
+        assert_eq!(symbol.name, "test_constant");
+        assert_eq!(symbol.container, "TestTrait");
+        assert_eq!(symbol.kind, MatchKind::Constant);
+        assert_eq!(symbol.line, 4);
+    }
+
+    #[test]
+    fn check_enum_inclusive() {
+        let src = "
+            enum TestEnum {
+                Member1,
+                Member2(u32),
+                Member3(TestEnum)
+            }
+        ";
+
+        let matches = get_symbol_matches(src, "");
+        assert!(matches.len() == 4);
+
+        let ref symbol = matches[0];
+        assert_eq!(symbol.name, "TestEnum");
+        assert_eq!(symbol.container, "");
+        assert_eq!(symbol.kind, MatchKind::Enum);
+        assert_eq!(symbol.line, 2);
+
+        let ref symbol = matches[1];
+        assert_eq!(symbol.name, "Member1");
+        assert_eq!(symbol.container, "TestEnum");
+        assert_eq!(symbol.kind, MatchKind::Constant);
+        assert_eq!(symbol.line, 3);
+
+        let ref symbol = matches[2];
+        assert_eq!(symbol.name, "Member2");
+        assert_eq!(symbol.container, "TestEnum");
+        assert_eq!(symbol.kind, MatchKind::Constant);
+        assert_eq!(symbol.line, 4);
+
+        let ref symbol = matches[3];
+        assert_eq!(symbol.name, "Member3");
+        assert_eq!(symbol.container, "TestEnum");
+        assert_eq!(symbol.kind, MatchKind::Constant);
+        assert_eq!(symbol.line, 5);
     }
 }
