@@ -1,4 +1,4 @@
-# rustsym [![Build Status](https://travis-ci.org/trixnz/rustsym.svg)](https://travis-ci.org/trixnz/rustsym)
+# rustsym [![Build Status](https://travis-ci.org/trixnz/rustsym.svg)](https://travis-ci.org/trixnz/rustsym) [![crates.io version](https://img.shields.io/crates/v/rustsym.svg?maxAge=2592000)](https://crates.io/crates/rustsym) [![crates.io downloads](https://img.shields.io/crates/d/rustsym.svg?maxAge=2592000)](https://crates.io/crates/rustsym)
 
 A tool to query symbols from rust code for use in IDEs
 
