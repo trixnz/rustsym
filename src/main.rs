@@ -2,7 +2,7 @@ extern crate syntex_syntax as syntax;
 extern crate rustc_serialize;
 extern crate clap;
 extern crate walkdir;
-extern crate threadpool;
+extern crate syncbox;
 extern crate num_cpus;
 
 #[cfg(test)]
@@ -87,7 +87,7 @@ fn dump_ast(matches: &clap::ArgMatches) {
 
 fn search_symbol_global(path: &str, query: &str) -> Vec<Match> {
     use walkdir::WalkDir;
-    use threadpool::ThreadPool;
+    use syncbox::{ThreadPool, Run};
     use std::sync::mpsc::channel;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -106,11 +106,14 @@ fn search_symbol_global(path: &str, query: &str) -> Vec<Match> {
 
     let target_dir = crate_root.join("target");
 
-    let pool = ThreadPool::new(num_cpus::get());
+    let started_jobs = Arc::new(AtomicUsize::new(0));
+    let completed_jobs = Arc::new(AtomicUsize::new(0));
+
     let (tx, rx) = channel();
 
-    let num_jobs = Arc::new(AtomicUsize::new(0));
+    let mut expected_jobs = 0;
 
+    let pool = ThreadPool::fixed_size(num_cpus::get() as u32);
     for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
         let path = entry.path();
 
@@ -133,23 +136,38 @@ fn search_symbol_global(path: &str, query: &str) -> Vec<Match> {
             let path = path.to_owned();
             let query = query.to_owned();
 
+            let started_jobs_clone = started_jobs.clone();
+            let completed_jobs_clone = completed_jobs.clone();
             let tx = tx.clone();
-            let num_jobs_clone = num_jobs.clone();
-            pool.execute(move || {
+
+            pool.run(move || {
+                // Indicate that this job has started. The job may not actually
+                // finish as serde can panic on malformed Rust syntax, but
+                // `completed_jobs` can catch this.
+                started_jobs_clone.fetch_add(1, Ordering::SeqCst);
+
                 let matches = search_symbol_file(&path, &query, false);
+
                 tx.send(matches).unwrap();
 
-                num_jobs_clone.fetch_add(1, Ordering::SeqCst);
+                // Indicate that we have a completed result
+                completed_jobs_clone.fetch_add(1, Ordering::SeqCst);
             });
+
+            expected_jobs += 1;
         }
     }
 
-    // Wait for all of the jobs to finish
-    while pool.active_count() > 0 {}
+    // Wait for all of the jobs to start
+    while started_jobs.load(Ordering::SeqCst) != expected_jobs {}
+
+    // Stop any new jobs and wait for all existing jobs to finish
+    pool.shutdown_now();
+    pool.await_termination();
 
     // Fold the list of matches into a single list
-    let num_jobs = num_jobs.load(Ordering::SeqCst);
-    rx.iter().take(num_jobs).fold(vec![], |mut v, m| {
+    let completed_jobs = completed_jobs.load(Ordering::Relaxed);
+    rx.iter().take(completed_jobs).fold(vec![], |mut v, m| {
         v.extend(m);
         v
     })
