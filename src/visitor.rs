@@ -65,11 +65,16 @@ impl<'a> Visitor for SymbolVisitor<'a> {
         let item_name = get_ident_name(&item.ident);
 
         match item.node {
-            ItemKind::Mod(_) => {
-                // Stop us from going into dependent modules
+            ItemKind::Mod(ref mod_) => {
+
                 if !self.search_children {
-                    return;
+                    if self.codemap.span_to_filename(item.span) != self.codemap.span_to_filename(mod_.inner) {
+                        // Don't visit submodules that are not inline.
+                        return;
+                    }
                 }
+
+                self.create_match(&item_name, None, MatchKind::Module, item.span);
             }
 
             ItemKind::Struct(ref variant, _) => {

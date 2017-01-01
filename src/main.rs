@@ -21,6 +21,8 @@ use std::path::Path;
 
 #[derive(Debug, PartialEq)]
 enum MatchKind {
+    Module,
+
     Struct,
     Method,
     Field,
@@ -38,6 +40,8 @@ enum MatchKind {
 impl Encodable for MatchKind {
     fn encode<E: Encoder>(&self, e: &mut E) -> Result<(), E::Error> {
         try!(e.emit_str(match *self {
+            MatchKind::Module => "module",
+
             MatchKind::Struct => "struct",
             MatchKind::Method => "method",
             MatchKind::Field => "field",
