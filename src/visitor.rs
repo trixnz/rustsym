@@ -99,7 +99,7 @@ impl<'a> Visitor for SymbolVisitor<'a> {
             }
 
             ItemKind::Trait(_, _, _, ref items) => {
-                self.create_match(&item_name, None, MatchKind::Struct, item.span);
+                self.create_match(&item_name, None, MatchKind::Trait, item.span);
 
                 for v in items {
                     let trait_item_name = get_ident_name(&v.ident);
