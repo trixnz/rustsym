@@ -34,6 +34,7 @@ enum MatchKind {
     Enum,
 
     Macro,
+    Trait,
 }
 
 // Required to convert the `MatchKind` enum fields to lowercase in the JSON output
@@ -53,6 +54,7 @@ impl Encodable for MatchKind {
             MatchKind::Enum => "enum",
 
             MatchKind::Macro => "macro",
+            MatchKind::Trait => "trait",
         }));
 
         Ok(())
@@ -468,7 +470,7 @@ mod tests {
         let ref symbol = matches[0];
         assert_eq!(symbol.name, "TestTrait");
         assert_eq!(symbol.container, "");
-        assert_eq!(symbol.kind, MatchKind::Struct);
+        assert_eq!(symbol.kind, MatchKind::Trait);
         assert_eq!(symbol.line, 2);
 
         let ref symbol = matches[1];
