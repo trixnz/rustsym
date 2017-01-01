@@ -521,4 +521,28 @@ mod tests {
         assert_eq!(symbol.kind, MatchKind::Constant);
         assert_eq!(symbol.line, 5);
     }
+
+    #[test]
+    fn check_inline_module() {
+        let src = "
+            mod core {
+                fn foo() {}
+            }
+        ";
+
+        let matches = get_symbol_matches(src, "");
+        assert!(matches.len() == 2);
+
+        let ref symbol = matches[0];
+        assert_eq!(symbol.name, "core");
+        assert_eq!(symbol.container, "");
+        assert_eq!(symbol.kind, MatchKind::Module);
+        assert_eq!(symbol.line, 2);
+
+        let ref symbol = matches[1];
+        assert_eq!(symbol.name, "foo");
+        assert_eq!(symbol.container, "");
+        assert_eq!(symbol.kind, MatchKind::Function);
+        assert_eq!(symbol.line, 3);
+    }
 }
