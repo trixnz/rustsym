@@ -40,11 +40,10 @@ impl<'a> Visitor for SymbolVisitor<'a> {
     fn visit_fn(&mut self,
                 fn_kind: FnKind,
                 fn_decl: &ast::FnDecl,
-                block: &ast::Block,
                 span: Span,
                 _: ast::NodeId) {
         let fn_name = match fn_kind {
-            FnKind::ItemFn(id, _, _, _, _, _) => Some(get_ident_name(&id)),
+            FnKind::ItemFn(id, _, _, _, _, _, _) => Some(get_ident_name(&id)),
             _ => None,
         };
 
@@ -52,7 +51,7 @@ impl<'a> Visitor for SymbolVisitor<'a> {
             self.create_match(&name, None, MatchKind::Function, span);
         }
 
-        visit::walk_fn(self, fn_kind, fn_decl, block, span);
+        visit::walk_fn(self, fn_kind, fn_decl, span);
     }
 
     // Catch pretty much everything else
