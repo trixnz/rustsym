@@ -20,6 +20,6 @@ If you run `rustsym search -g . foo` then you will search all source files under
 `rustsym` also supports pretty printing the AST for debugging why certain symbols may not appear, but to also improve the turn around time of additional symbol types. This functionality is entirely provided by [syntex](https://github.com/serde-rs/syntex). It can be invoked with `rustsym ast file.rs`.
 
 ## Supported IDEs
-* [vscode](https://github.com/Microsoft/vscode) via [RustyCode](https://github.com/saviorisdead/RustyCode)
+* [vscode](https://github.com/Microsoft/vscode) via [RustyCode](https://github.com/editor-rs/vscode-rust)
 
 ![Go To Symbol](https://cloud.githubusercontent.com/assets/2995953/17079680/1113b7dc-5118-11e6-82a5-792d063a33b9.png)
