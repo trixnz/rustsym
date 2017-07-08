@@ -23,3 +23,4 @@ If you run `rustsym search -g . foo` then you will search all source files under
 * [vscode](https://github.com/Microsoft/vscode) via [RustyCode](https://github.com/editor-rs/vscode-rust)
 
 ![Go To Symbol](https://cloud.githubusercontent.com/assets/2995953/17079680/1113b7dc-5118-11e6-82a5-792d063a33b9.png)
+* [atom](https://atom.io) via [rustsym package](https://atom.io/packages/rustsym)
