@@ -1,6 +1,6 @@
 [package]
 name = "rustsym"
-version = "0.3.1"
+version = "0.3.2"
 description = "Tool to query symbols from rust code for use in IDEs"
 authors = ["Trixnz"]
 repository = "https://github.com/trixnz/rustsym"
