@@ -15,6 +15,7 @@ use rustc_serialize::{json, Encodable, Encoder};
 use clap::{App, Arg, SubCommand, AppSettings};
 
 use syntax::parse::{self, ParseSess};
+use syntax::codemap::{FilePathMapping};
 use syntax::visit;
 
 use std::path::Path;
@@ -84,7 +85,7 @@ enum SearchType {
 fn dump_ast(matches: &clap::ArgMatches) {
     let file = matches.value_of("file").unwrap();
 
-    let session = ParseSess::new();
+    let session = ParseSess::new(FilePathMapping::empty());
     let krate = parse::parse_crate_from_file(file.as_ref(), &session).unwrap();
 
     // Pretty print the parsed AST
@@ -180,7 +181,7 @@ fn search_symbol_global(path: &str, query: &str) -> Vec<Match> {
 }
 
 fn search_symbol_file(file: &str, query: &str, search_children: bool) -> Vec<Match> {
-    let session = ParseSess::new();
+    let session = ParseSess::new(FilePathMapping::empty());
     let krate = match parse::parse_crate_from_file(file.as_ref(), &session) {
         Ok(krate) => krate,
         Err(_) => return vec![],

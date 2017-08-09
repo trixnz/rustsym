@@ -35,11 +35,11 @@ fn get_ident_name(ident: &ast::Ident) -> String {
     ident.name.as_str().to_string()
 }
 
-impl<'a> Visitor for SymbolVisitor<'a> {
+impl<'a> Visitor<'a> for SymbolVisitor<'a> {
     // Catch free standing functions
     fn visit_fn(&mut self,
-                fn_kind: FnKind,
-                fn_decl: &ast::FnDecl,
+                fn_kind: FnKind<'a>,
+                fn_decl: &'a ast::FnDecl,
                 span: Span,
                 _: ast::NodeId) {
         let fn_name = match fn_kind {
@@ -55,7 +55,7 @@ impl<'a> Visitor for SymbolVisitor<'a> {
     }
 
     // Catch pretty much everything else
-    fn visit_item(&mut self, item: &ast::Item) {
+    fn visit_item(&mut self, item: &'a ast::Item) {
         use syntax::ast::ItemKind;
         use syntax::ast::VariantData;
         use syntax::ast::TraitItemKind;
@@ -133,7 +133,7 @@ impl<'a> Visitor for SymbolVisitor<'a> {
                 self.create_match(&item_name, None, MatchKind::Static, item.span);
             }
 
-            ItemKind::Impl(_, _, _, _, ref ty, ref items) => {
+            ItemKind::Impl(_, _, _, _, _, ref ty, ref items) => {
                 let mut struct_name = String::new();
 
                 // Figure out the struct name on the right hand side of the `impl` expression
@@ -152,7 +152,7 @@ impl<'a> Visitor for SymbolVisitor<'a> {
                 }
             }
 
-            ItemKind::Mac(_) => {
+            ItemKind::MacroDef(_) => {
                 self.create_match(&item_name, None, MatchKind::Macro, item.span);
             }
 
